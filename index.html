@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals with Soft Teal Accents -->
-    <!-- Application Structure Plan: The SPA is designed around a user-centric, interactive timeline, restructuring the clinical report into a task-oriented journey for a patient. Instead of chapters, the user navigates through recovery phases (e.g., "First 2 Weeks," "Months 2-6"). This structure prioritizes "what to do when," making complex information actionable and timely. A new Gemini-powered "Personal Assistant" view provides a conversational, AI-driven layer for personalized advice, directly addressing user-specific questions and enhancing engagement. This hybrid approach combines structured guidance with dynamic, on-demand support. -->
-    <!-- Visualization & Content Choices: Report info is translated into interactive components. 1) Healing Process: An HTML/CSS flexbox diagram shows healing phases (Goal: Inform). 2) Treatment Efficacy: Interactive cards compare treatments (Goal: Compare). 3) Long-Term Outlook: A Chart.js bar chart visualizes scar improvement (Goal: Change). 4) AI-Powered Advice: A new section uses the Gemini API to generate personalized scar care plans from user text input, offering a dynamic and interactive way to synthesize the app's information (Goal: Synthesize & Advise). This supports the user journey by offering both static and personalized guidance, without using SVG or Mermaid. -->
+    <!-- Application Structure Plan: The SPA is designed around a user-centric, interactive timeline, restructuring the clinical report into a task-oriented journey for a patient. Instead of chapters, the user navigates through recovery phases. This version simplifies the "Personal Assistant" by calling a public, keyless LLM API directly from the browser, removing the need for a secure backend and making the application a single, self-contained file. -->
+    <!-- Visualization & Content Choices: 1) Healing Process: An HTML/CSS flexbox diagram shows healing phases. 2) Treatment Efficacy: Interactive cards compare treatments. 3) Long-Term Outlook: A Chart.js bar chart visualizes scar improvement. 4) AI-Powered Advice: The Personal Assistant now uses a public, keyless API (LLM7.io) to generate advice from user text input, with the detailed system prompt now embedded in the client-side JavaScript. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -80,6 +80,9 @@
             padding-left: 20px;
             margin-top: 1rem;
             margin-bottom: 1rem;
+        }
+        #ai-response-box li {
+            margin-bottom: 0.5rem;
         }
 
         @keyframes spin {
@@ -287,7 +290,7 @@
         <div id="assistant-view" class="content-section">
             <div class="bg-white p-6 md:p-8 rounded-2xl shadow-lg">
                 <h2 class="text-2xl font-bold mb-2 text-gray-800 text-center">✨ Your Personal Scar Care Assistant</h2>
-                <p class="text-gray-600 mb-6 text-center max-w-2xl mx-auto">Describe your scar, ask a question, or share a concern. Our AI assistant, powered by Google's Gemini, will provide personalized advice based on the information in this guide.</p>
+                <p class="text-gray-600 mb-6 text-center max-w-2xl mx-auto">Describe your scar, ask a question, or share a concern. Our AI assistant will provide personalized advice based on the information in this guide. <br><small class="text-red-500">Note: This feature uses a public, experimental API and is for demonstration purposes only. Do not share sensitive information.</small></p>
                 
                 <div class="max-w-xl mx-auto">
                     <label for="ai-prompt" class="font-semibold text-gray-700">How can I help you today?</label>
@@ -324,41 +327,24 @@
 
             function switchView(targetId) {
                 mainNavButtons.forEach(btn => {
-                    if (btn.dataset.target === targetId) {
-                        btn.classList.add('active');
-                    } else {
-                        btn.classList.remove('active');
-                    }
+                    btn.classList.toggle('active', btn.dataset.target === targetId);
                 });
-
                 contentSections.forEach(section => {
-                    if (section.id === targetId + '-view') {
-                        section.classList.add('active');
-                    } else {
-                        section.classList.remove('active');
-                    }
+                    section.classList.toggle('active', section.id === targetId + '-view');
                 });
             }
             
             mainNavButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    switchView(button.dataset.target);
-                });
+                button.addEventListener('click', () => switchView(button.dataset.target));
             });
 
             sectionNavButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     const targetId = button.dataset.section;
-
                     sectionNavButtons.forEach(btn => btn.classList.remove('active'));
                     button.classList.add('active');
-
                     pageContents.forEach(content => {
-                        if (content.id === targetId) {
-                            content.classList.add('active');
-                        } else {
-                            content.classList.remove('active');
-                        }
+                        content.classList.toggle('active', content.id === targetId);
                     });
                 });
             });
@@ -368,9 +354,7 @@
                     const content = header.nextElementSibling;
                     const icon = header.querySelector('.accordion-icon');
                     const item = header.closest('.accordion-item');
-
                     item.classList.toggle('open');
-                    
                     if (item.classList.contains('open')) {
                         content.style.maxHeight = content.scrollHeight + 'px';
                         icon.textContent = '-';
@@ -406,47 +390,36 @@
                     maintainAspectRatio: false,
                     indexAxis: 'y',
                     scales: {
-                        x: {
-                            stacked: true,
-                            max: 100,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%'
-                                }
-                            }
-                        },
-                        y: {
-                            stacked: true,
-                        }
+                        x: { stacked: true, max: 100, ticks: { callback: value => value + '%' } },
+                        y: { stacked: true }
                     },
                     plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Long-Term Scar Improvement: Patience is Key',
-                            font: {
-                                size: 16
-                            }
-                        },
-                        tooltip: {
-                             callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: ${context.raw}%`;
-                                }
-                            }
-                        }
+                        legend: { position: 'top' },
+                        title: { display: true, text: 'Long-Term Scar Improvement: Patience is Key', font: { size: 16 } },
+                        tooltip: { callbacks: { label: context => `${context.dataset.label}: ${context.raw}%` } }
                     }
                 }
             };
 
             const scarChartCtx = document.getElementById('scarChart')?.getContext('2d');
-            if(scarChartCtx) {
-                new Chart(scarChartCtx, config);
+            if(scarChartCtx) new Chart(scarChartCtx, config);
+
+            function simpleMarkdownToHtml(text) {
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n\s?\*\s/g, '</li><li>')
+                    .replace(/(\<\/li\>)/, '') // remove first closing tag
+                    .replace(/(\<li\>.*?\<\/li\>)/g, '<ul>$1</ul>') // wrap list items in ul
+                    .replace(/\<\/ul\>\s?\<ul\>/g, '') // merge consecutive lists
+                    .replace(/\n/g, '<br>');
             }
 
-            // Gemini API Integration
+            function displayAIResponse(text) {
+                aiResponseBox.innerHTML = simpleMarkdownToHtml(text);
+                aiResponseBox.style.display = 'block';
+            }
+
+            // AI Assistant using Public API
             getAIAdviceBtn.addEventListener('click', async () => {
                 const userQuery = aiPromptInput.value;
                 if (!userQuery.trim()) {
@@ -458,37 +431,61 @@
                 aiLoader.style.display = 'flex';
                 getAIAdviceBtn.disabled = true;
                 aiResponseBox.style.display = 'none';
+                
+                // Using the public, keyless API endpoint
+                const publicApiUrl = 'https://api.llm7.io/v1/chat/completions';
 
-                const prompt = `You are an AI assistant for a patient who has had thyroid surgery. Your goal is to provide helpful, safe, and evidence-based advice about their scar, based on the information in our app.
+                // The detailed system prompt is now embedded in the frontend code
+                const systemPrompt = `You are an expert AI assistant for a patient who has had thyroid surgery. Your purpose is to provide helpful, safe, and evidence-based advice about their scar management, based on the comprehensive clinical report provided below.
 
-                **IMPORTANT SAFETY RULE:** ALWAYS start your response with a disclaimer in bold: "**Disclaimer: I am an AI assistant and not a medical professional. This advice is for informational purposes only. Please consult your doctor or dermatologist for any medical concerns.**"
+                **CRITICAL SAFETY RULE:** ALWAYS start your response with the following disclaimer in bold: "**Disclaimer: I am an AI assistant and not a medical professional. This advice is for informational purposes only and is based on the provided clinical report. Please consult your doctor or a board-certified dermatologist for any medical concerns or before starting any new treatment.**"
 
-                **Information from our App (for your context):**
-                - **Phase 1 (0-2 weeks):** Wound is fresh. Focus on keeping it clean, dry, avoiding tension. No sun.
-                - **Phase 2 (2 weeks - 3 months):** Wound is closed. Begin active management. Critical actions are: 1) Strict sun protection (SPF 30+ mineral sunscreen). 2) Silicone therapy (gel or sheets). 3) Gentle scar massage.
-                - **Phase 3 (3 months - 1 year):** Remodeling phase. Consistency is key. Continue sun protection and silicone/massage. Scar slowly flattens and fades.
-                - **Ineffective Treatments:** We advise against Vitamin E (causes rashes) and Onion Extract (no evidence).
-                - **When to see a doctor:** Signs of infection (pus, fever, increasing pain), or if the scar becomes very raised, hard, or intensely itchy (signs of hypertrophic or keloid scarring).
+                ---
+                **COMPREHENSIVE KNOWLEDGE BASE (from Clinical Report)**
 
-                **User's question:** "${userQuery}"
+                **1. Healing Phases & Timelines:**
+                * **Phase 1: Inflammation (Day 0-5):** Wound is fresh. Focus on protection.
+                * **Phase 2: Proliferation (Week 1-6):** Wound is closed. Begin active management. This is a critical window.
+                * **Phase 3: Remodeling (Week 3 to 1-2 Years):** The scar slowly and continuously remodels. The scar's appearance at 3 or 6 months is NOT the final result.
 
-                **Your Task:**
+                **2. Tier 1: Essential Foundations (For Everyone):**
+                * **Sun Protection (NON-NEGOTIABLE):** Strict sun protection for a MINIMUM of 12 months. Use mineral-based (Zinc/Titanium) sunscreen with SPF 30+.
+
+                **3. Tier 2: Highly Recommended Gold Standard:**
+                * **Silicone Therapy (Sheets or Gel):** GOLD STANDARD, first-line non-invasive treatment. Start 2-3 weeks post-op for at least 2-4 months.
+                * **Scar Massage:** Begin ONLY when the wound is fully closed (typically ~2 weeks). Use firm, circular pressure for 5-10 minutes, 2-3 times per day.
+
+                **4. Unproven / Not Recommended Topical Treatments:**
+                * **Vitamin E:** Not recommended. High risk of causing allergic skin rashes (contact dermatitis).
+                * **Onion Extract (e.g., Mederma):** Not recommended. Lacks evidence.
+
+                **5. Tier 3: Advanced & Proactive Interventions (Discuss with a Doctor):**
+                * **Botox:** Single intraoperative injection can significantly improve final scar appearance.
+                * **Early Laser Therapy (PDL):** Can start as early as suture removal for reducing redness.
+                * **Intralesional Corticosteroid Injections:** First-line treatment for established keloids and hypertrophic scars.
+
+                **6. Long-Term Outlook:**
+                * At 1 year, 71% of scars are rated "regular" or "bad." At 5+ years, 95% of those same scars are rated "excellent" or "very good."
+                ---
+
+                **YOUR TASK:**
                 1.  Start with the mandatory disclaimer.
-                2.  Acknowledge the user's specific query.
-                3.  Based on the timing they might have mentioned and their description, gently place them in the correct healing phase.
-                4.  Provide 2-3 clear, actionable steps based on the evidence-based practices from our app for their situation.
-                5.  If they mention something concerning (like pus or extreme itching/pain), strongly advise them to see a doctor.
-                6.  Keep the tone encouraging, empathetic, and clear. Use simple language.
-                7.  Format your response using markdown (e.g., **bold** for emphasis, and use asterisks for unordered lists like * Item 1).`;
+                2.  Analyze the user's query for timeline and symptoms.
+                3.  Provide clear, actionable steps based ONLY on the evidence-based Tiers in the knowledge base.
+                4.  If they mention a treatment you know is not recommended (like Vitamin E), gently explain why.
+                5.  If symptoms suggest a hypertrophic or keloid scar (very raised, hard, itchy), STRONGLY advise them to consult a dermatologist.
+                6.  Use an encouraging tone and markdown for readability.`;
 
                 try {
-                    const apiKey = "";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${apiKey}`;
-                    
-                    let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-                    const payload = { contents: chatHistory };
+                    const payload = {
+                        model: 'grok', // ** pick a model from https://llm7.io/ **
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userQuery }
+                        ]
+                    };
 
-                    const response = await fetch(apiUrl, {
+                    const response = await fetch(publicApiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -499,36 +496,21 @@
                     }
 
                     const result = await response.json();
-                    
-                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts.length > 0) {
-                        const text = result.candidates[0].content.parts[0].text;
-                        displayAIResponse(text);
+
+                    if (result.choices && result.choices[0] && result.choices[0].message) {
+                        displayAIResponse(result.choices[0].message.content);
                     } else {
-                        throw new Error('No content in API response.');
+                        throw new Error('Could not parse response from API.');
                     }
+
                 } catch (error) {
-                    displayAIResponse(`**Sorry, I encountered an error.**<br>Please try again later. Error: ${error.message}`);
-                    console.error("Error calling Gemini API:", error);
+                    displayAIResponse(`**Sorry, I encountered an error.**<br>The public API may be temporarily unavailable or rate-limited. Please try again later. <br><small>Error: ${error.message}</small>`);
+                    console.error("Error calling public API:", error);
                 } finally {
                     aiLoader.style.display = 'none';
                     getAIAdviceBtn.disabled = false;
                 }
             });
-
-            function simpleMarkdownToHtml(text) {
-                return text
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n\s?\*\s/g, '</li><li>')
-                    .replace(/(\<\/li\>)/, '')
-                    .replace(/(\<li\>.*?\<\/li\>)/g, '<ul>$1</ul>')
-                    .replace(/\<\/ul\>\<ul\>/g, '')
-                    .replace(/\n/g, '<br>');
-            }
-
-            function displayAIResponse(text) {
-                aiResponseBox.innerHTML = simpleMarkdownToHtml(text);
-                aiResponseBox.style.display = 'block';
-            }
 
         });
     </script>
