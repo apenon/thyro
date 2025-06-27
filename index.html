@@ -1,0 +1,71 @@
+document.addEventListener('DOMContentLoaded', () => {
+  const apiKeyInput = document.getElementById('api-key');
+  const saveKeyButton = document.getElementById('save-key');
+  const promptInput = document.getElementById('prompt');
+  const sendPromptButton = document.getElementById('send-prompt');
+  const resultDiv = document.getElementById('result');
+
+  // Load the API key from storage on popup load
+  chrome.storage.sync.get('geminiApiKey', (data) => {
+    if (data.geminiApiKey) {
+      apiKeyInput.value = data.geminiApiKey;
+    }
+  });
+
+  saveKeyButton.addEventListener('click', () => {
+    const apiKey = apiKeyInput.value;
+    chrome.storage.sync.set({ geminiApiKey: apiKey }, () => {
+      console.log('API key saved.');
+      alert('API Key saved (less securely) to storage.');
+    });
+  });
+
+  sendPromptButton.addEventListener('click', () => {
+    const prompt = promptInput.value;
+    if (!prompt) {
+      resultDiv.textContent = 'Please enter a prompt.';
+      return;
+    }
+
+    chrome.storage.sync.get('geminiApiKey', (data) => {
+      const apiKey = data.geminiApiKey;
+      if (!apiKey) {
+        resultDiv.textContent = 'Please enter and save your Gemini API key.';
+        return;
+      }
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting.executeScript({
+          target: { tabId: tabs[0].id },
+          function: getWebsiteContentAndSendMessage,
+          args: [prompt, apiKey]
+        });
+      });
+    });
+  });
+
+  function getWebsiteContentAndSendMessage(prompt, apiKey) {
+    let websiteContent = "";
+    const selection = window.getSelection();
+
+    if (selection && selection.toString()) {
+      websiteContent = selection.toString();
+    } else {
+      websiteContent = document.documentElement.innerText;
+    }
+
+    // **SECURITY WARNING:**  DO NOT SEND THE API KEY DIRECTLY.  USE A BACKEND PROXY!
+    chrome.runtime.sendMessage({
+      message: "send_to_gemini",
+      prompt: prompt,
+      apiKey: apiKey, // Replace this with a call to your backend.
+      websiteContent: websiteContent
+    }, function(response) {
+      if (response.error) {
+        alert(`Error from Gemini API: ${response.error}`);
+      } else {
+        alert(`Gemini Response: ${response.result}`);
+      }
+    });
+  }
+});
